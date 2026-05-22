@@ -123,6 +123,8 @@ supervision/linking semantics.
 - `Mob.Ble.Diagnostics.Metrics` provides a pure accumulator for RSSI
   histograms, peer discovery stats, frame counts, error categories, and
   GATT/connection quality samples.
+- `Mob.Ble.MobileBridge.diagnostics/1` exposes the live bridge metrics snapshot
+  gathered from decoded bridge events and native-operation failures.
 
 See `docs/ROADMAP.md`, `docs/PERFORMANCE.md`, and
 `examples/basic_host/README.md` for the current hardening plan and integration

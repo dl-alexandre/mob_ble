@@ -4,6 +4,34 @@ defmodule Mob.Ble.MobileBridgeTest do
   alias Mob.Ble.CarrierRejectedError
   alias Mob.Ble.MobileBridge
 
+  defmodule FlakyNative do
+    @moduledoc false
+
+    def start_scan(_owner), do: :ok
+    def start_advertising(_owner, _local_name), do: :ok
+    def stop(_owner), do: :ok
+
+    def send_ping(_owner, _peer_id, _frame) do
+      case Process.get({__MODULE__, :send_ping_attempts}, 0) do
+        0 ->
+          Process.put({__MODULE__, :send_ping_attempts}, 1)
+          {:error, :busy}
+
+        _ ->
+          :ok
+      end
+    end
+  end
+
+  defmodule FailingNative do
+    @moduledoc false
+
+    def start_scan(_owner), do: :ok
+    def start_advertising(_owner, _local_name), do: :ok
+    def stop(_owner), do: :ok
+    def send_ping(_owner, _peer_id, _frame), do: {:error, :timeout}
+  end
+
   defmodule OwnerTransport do
     @moduledoc false
     use GenServer
@@ -58,6 +86,14 @@ defmodule Mob.Ble.MobileBridgeTest do
       send(bridge, {MobileBridge, :bridge_event, payload})
 
       assert_receive {:ble_peer_up, "peer-1", %{"rssi" => -50}}, 500
+
+      assert %{
+               summary: %{
+                 peer_count: 1,
+                 discovery_count: 1,
+                 rssi_histogram: %{">=-60" => 1}
+               }
+             } = MobileBridge.diagnostics(bridge)
     end
 
     test "decodes a peer_down payload", %{bridge: bridge} do
@@ -75,11 +111,14 @@ defmodule Mob.Ble.MobileBridgeTest do
       )
 
       assert_receive {:ble_frame, "p", ^bin}, 500
+      assert %{summary: %{frames: 1}} = MobileBridge.diagnostics(bridge)
     end
 
     test "malformed payloads are dropped without forwarding", %{bridge: bridge} do
       send(bridge, {MobileBridge, :bridge_event, "not json"})
       refute_receive _, 100
+
+      assert %{summary: %{errors: %{protocol: 1}}} = MobileBridge.diagnostics(bridge)
     end
   end
 
@@ -262,6 +301,45 @@ defmodule Mob.Ble.MobileBridgeTest do
       {:ok, bridge} = MobileBridge.start_link(event_target: self())
       # send_frame when native? false returns :ok without calling NIF
       assert :ok = MobileBridge.send_frame(bridge, "x", <<>>)
+      GenServer.stop(bridge)
+    end
+  end
+
+  describe "native retry, error taxonomy, and diagnostics" do
+    test "retries retryable native send failures and records attempts" do
+      {:ok, bridge} =
+        MobileBridge.start_link(
+          event_target: self(),
+          native_module: FlakyNative,
+          backoff: [base_ms: 1, max_ms: 1, max_attempts: 2]
+        )
+
+      assert :ok = MobileBridge.send_frame(bridge, "peer-1", <<1>>)
+
+      assert %{
+               summary: %{errors: %{backoff: 1}, connection_samples: 3},
+               metrics: %{connections: connections}
+             } = MobileBridge.diagnostics(bridge)
+
+      assert Enum.any?(connections, &(&1.operation == :send_frame and &1.attempt == 2))
+
+      GenServer.stop(bridge)
+    end
+
+    test "returns classified errors when native retries are exhausted" do
+      {:ok, bridge} =
+        MobileBridge.start_link(
+          event_target: self(),
+          native_module: FailingNative,
+          backoff: [base_ms: 1, max_ms: 1, max_attempts: 1]
+        )
+
+      assert {:error,
+              %Mob.Ble.Error{category: :backoff, retryable?: true, operation: :send_frame}} =
+               MobileBridge.send_frame(bridge, "peer-1", <<1>>)
+
+      assert %{summary: %{errors: %{backoff: 1}}} = MobileBridge.diagnostics(bridge)
+
       GenServer.stop(bridge)
     end
   end

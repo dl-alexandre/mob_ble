@@ -72,6 +72,7 @@ defmodule Mob.Ble.MixProject do
         CHANGELOG.md
         docs
         examples
+        scripts
         LICENSE
       )
     ]

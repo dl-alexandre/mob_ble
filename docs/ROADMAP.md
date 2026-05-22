@@ -59,8 +59,8 @@ operate, debug, and integrate in production applications.
 
 ## Suggested Order
 
-1. Public API typespecs and Dialyzer baseline.
-2. Error taxonomy and retry/backoff helpers.
-3. Diagnostics event schema and peer metrics.
-4. Example integration app.
-5. Performance and power measurement notes.
+1. Public API typespecs and Dialyzer baseline. Done.
+2. Error taxonomy and retry/backoff helpers. Done, and wired into bridge native-operation failures.
+3. Diagnostics event schema and peer metrics. Done, with live bridge diagnostics snapshots.
+4. Example integration app. Done in `examples/basic_host`.
+5. Performance and power measurement notes. Measurement plan and capture template done; device captures still need hardware runs.

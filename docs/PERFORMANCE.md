@@ -41,3 +41,15 @@ device benchmarks yet.
 - Compare short vs. capped backoff policies under failed-connect conditions.
 - Publish a small table of measured runs once at least two Android and one iOS
   device have repeatable captures.
+
+## Capture Template
+
+Use the repository helper to create a repeatable evidence folder:
+
+```sh
+SCENARIO=idle_scan DURATION_SECONDS=300 ./scripts/capture_power_baseline.sh
+```
+
+The script writes `metadata.md` and an operator checklist. Fill in the device
+and battery fields during the run, then attach host/app logs and diagnostics
+output from `Mob.Ble.MobileBridge.diagnostics/1`.

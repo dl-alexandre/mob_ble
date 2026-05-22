@@ -66,13 +66,20 @@ defmodule Mob.Ble.MobileBridge do
 
   require Logger
 
+  alias Mob.Ble.Backoff
+  alias Mob.Ble.Diagnostics.Metrics
+  alias Mob.Ble.Error
+
   @test_env Mix.env() == :test
 
   @type state :: %{
           event_target: pid(),
           config: keyword() | map(),
           local_name: binary(),
-          native?: boolean()
+          native?: boolean(),
+          native_module: module(),
+          backoff: Backoff.t(),
+          metrics: Metrics.t()
         }
 
   @spec start_link(keyword()) :: GenServer.on_start()
@@ -135,26 +142,38 @@ defmodule Mob.Ble.MobileBridge do
     GenServer.call(bridge, {:broadcast_frame, frame, opts})
   end
 
+  @doc "Returns the bridge diagnostics summary and raw metrics snapshot."
+  @spec diagnostics(pid() | GenServer.name()) :: %{summary: map(), metrics: Metrics.t()}
+  def diagnostics(bridge) do
+    GenServer.call(bridge, :diagnostics)
+  end
+
   @impl true
   def init(opts) do
     event_target = Keyword.fetch!(opts, :event_target)
     config = Keyword.get(opts, :config, Application.get_env(:mob_ble, :config, []))
     local_name = local_name(opts, config)
     native? = native_enabled?(opts, config)
+    native_module = Keyword.get(opts, :native_module, :mob_ble_nif)
+
+    backoff = backoff_policy(opts, config)
 
     state = %{
       event_target: event_target,
       config: config,
       local_name: local_name,
-      native?: native?
+      native?: native?,
+      native_module: native_module,
+      backoff: backoff,
+      metrics: Metrics.new()
     }
 
     if native? do
-      with :ok <- native_call(:start_scan, [self()]),
-           :ok <- native_call(:start_advertising, [self(), local_name]) do
+      with {:ok, state} <- native_operation(state, :start_scan, [self()]),
+           {:ok, state} <- native_operation(state, :start_advertising, [self(), local_name]) do
         {:ok, state}
       else
-        {:error, reason} -> {:stop, {:mob_ble_native_start_failed, reason}}
+        {:error, error, state} -> {:stop, {:mob_ble_native_start_failed, error}, state}
       end
     else
       {:ok, state}
@@ -163,7 +182,10 @@ defmodule Mob.Ble.MobileBridge do
 
   @impl true
   def handle_call({:send_frame, peer_id, frame, _opts}, _from, %{native?: true} = state) do
-    {:reply, native_call(:send_ping, [self(), to_string(peer_id), frame]), state}
+    case native_operation(state, :send_frame, [self(), to_string(peer_id), frame]) do
+      {:ok, state} -> {:reply, :ok, state}
+      {:error, error, state} -> {:reply, {:error, error}, state}
+    end
   end
 
   def handle_call({:send_frame, _peer_id, _frame, _opts}, _from, state) do
@@ -171,11 +193,19 @@ defmodule Mob.Ble.MobileBridge do
   end
 
   def handle_call({:broadcast_frame, frame, _opts}, _from, %{native?: true} = state) do
-    {:reply, native_call(:send_ping, [self(), "broadcast", frame]), state}
+    case native_operation(state, :broadcast_frame, [self(), "broadcast", frame]) do
+      {:ok, state} -> {:reply, :ok, state}
+      {:error, error, state} -> {:reply, {:error, error}, state}
+    end
   end
 
   def handle_call({:broadcast_frame, _frame, _opts}, _from, state) do
     {:reply, :ok, state}
+  end
+
+  def handle_call(:diagnostics, _from, state) do
+    diagnostics = %{summary: Metrics.summary(state.metrics), metrics: state.metrics}
+    {:reply, diagnostics, state}
   end
 
   @impl true
@@ -185,19 +215,22 @@ defmodule Mob.Ble.MobileBridge do
     case Mob.Ble.Internal.BridgeProtocol.decode(json) do
       {:ok, event} ->
         send(state.event_target, event)
+        {:noreply, %{state | metrics: Metrics.observe_event(state.metrics, event)}}
 
       {:error, reason} ->
-        Logger.warning("Mob.Ble.MobileBridge dropped invalid native event: #{inspect(reason)}")
-    end
+        error = Error.classify(:bridge_event, reason)
+        Logger.warning("Mob.Ble.MobileBridge dropped invalid native event: #{inspect(error)}")
 
-    {:noreply, state}
+        {:noreply,
+         %{state | metrics: Metrics.observe_error(state.metrics, :bridge_event, reason)}}
+    end
   end
 
   def handle_info(_other, state), do: {:noreply, state}
 
   @impl true
-  def terminate(_reason, %{native?: true}) do
-    _ = native_call(:stop, [self()])
+  def terminate(_reason, %{native?: true, native_module: native_module}) do
+    _ = native_call(native_module, :stop, [self()])
     :ok
   end
 
@@ -216,7 +249,18 @@ defmodule Mob.Ble.MobileBridge do
   defp config_value(_config, _key), do: nil
 
   defp native_enabled?(opts, config) do
-    Keyword.get(opts, :native?, config_value(config, :native?)) != false and not @test_env
+    requested? = Keyword.get(opts, :native?, config_value(config, :native?)) != false
+
+    fake_native? =
+      Keyword.has_key?(opts, :native_module) and Keyword.get(opts, :native?, true) != false
+
+    fake_native? or (requested? and not @test_env)
+  end
+
+  defp backoff_policy(opts, config) do
+    opts
+    |> Keyword.get(:backoff, config_value(config, :backoff) || [])
+    |> Backoff.new()
   end
 
   defp validate_carrier!(nil), do: :ok
@@ -234,8 +278,55 @@ defmodule Mob.Ble.MobileBridge do
     raise Mob.Ble.CarrierRejectedError, carrier: carrier, reason: reason
   end
 
-  defp native_call(function, args) do
-    apply(:mob_ble_nif, function, args)
+  defp native_operation(state, operation, args) do
+    do_native_operation(state, operation, args, 1)
+  end
+
+  defp do_native_operation(state, operation, args, attempt) do
+    case native_call(state.native_module, native_function(operation), args) do
+      :ok ->
+        {:ok,
+         Metrics.observe_connection(state.metrics, operation_peer(args), %{
+           operation: operation,
+           attempt: attempt,
+           terminal_status: :ok
+         })
+         |> then(&%{state | metrics: &1})}
+
+      {:error, reason} ->
+        error = Error.classify(operation, reason)
+        state = %{state | metrics: Metrics.observe_error(state.metrics, operation, reason)}
+
+        case retry_decision(state.backoff, attempt, error) do
+          {:retry, delay_ms} ->
+            Logger.debug(
+              "Mob.Ble.MobileBridge retrying #{operation} after #{delay_ms}ms: #{inspect(error)}"
+            )
+
+            Process.sleep(delay_ms)
+            do_native_operation(state, operation, args, attempt + 1)
+
+          :halt ->
+            Logger.warning("Mob.Ble.MobileBridge native #{operation} failed: #{inspect(error)}")
+            {:error, error, state}
+        end
+    end
+  end
+
+  defp native_function(:send_frame), do: :send_ping
+  defp native_function(:broadcast_frame), do: :send_ping
+  defp native_function(operation), do: operation
+
+  defp retry_decision(backoff, attempt, %Error{retryable?: true}),
+    do: Backoff.next(backoff, attempt + 1)
+
+  defp retry_decision(_backoff, _attempt, _error), do: :halt
+
+  defp operation_peer([_owner, peer_id, _frame]) when is_binary(peer_id), do: peer_id
+  defp operation_peer(_args), do: "bridge"
+
+  defp native_call(native_module, function, args) do
+    apply(native_module, function, args)
   rescue
     error in UndefinedFunctionError -> {:error, {:nif_unavailable, error.module, error.function}}
     error in ErlangError -> {:error, Map.get(error, :original, error)}
