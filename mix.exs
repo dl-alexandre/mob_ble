@@ -3,7 +3,7 @@ defmodule Mob.Ble.MixProject do
 
   @github_url "https://github.com/dl-alexandre/mob_ble"
   @version "0.1.0"
-  @description "Production BLE transport plugin for mob (MB legacy + GATT fetch). Self-contained (zero runtime dependencies on meshx_* packages post migration); owns canonical Mob.Ble.Bridge/MobileBridge, natives, manifest. See README.md + the repo docs/ for migration + contract details."
+  @description "Production BLE transport plugin for the mob framework (MB legacy beacon + GATT fetch carrier)"
 
   def project do
     [
@@ -35,6 +35,7 @@ defmodule Mob.Ble.MixProject do
 
   defp package do
     [
+      maintainers: ["dl-alexandre"],
       licenses: ["Apache-2.0"],
       links: %{
         "GitHub" => @github_url,

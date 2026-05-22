@@ -1,58 +1,31 @@
 # Basic Host Example
 
-This example shows the minimal shape a host transport uses to own the
-`mob_ble` bridge.
+This is a minimal host application that owns a `mob_ble` bridge process.
 
-```elixir
-defmodule BasicHost.Transport do
-  use GenServer
+It starts `BasicHost.Transport`, which:
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
-  end
+- calls `MobBle.bridge_module/0`;
+- starts the bridge with itself as `:event_target`;
+- handles `{:ble_peer_up, ...}`, `{:ble_peer_down, ...}`, and
+  `{:ble_frame, ...}` messages.
 
-  @impl true
-  def init(opts) do
-    bridge_mod = Keyword.get(opts, :bridge, Mob.Ble.bridge_module())
+Run it from this directory:
 
-    bridge_opts = [
-      event_target: self(),
-      local_name: Keyword.get(opts, :local_name, "basic-host"),
-      native?: Keyword.get(opts, :native?, false)
-    ]
-
-    {:ok, bridge} = bridge_mod.start_link(bridge_opts)
-    {:ok, %{bridge: bridge, bridge_mod: bridge_mod, peers: MapSet.new()}}
-  end
-
-  @impl true
-  def handle_info({:ble_peer_up, peer_id, metadata}, state) do
-    IO.inspect({:peer_up, peer_id, metadata})
-    {:noreply, %{state | peers: MapSet.put(state.peers, peer_id)}}
-  end
-
-  def handle_info({:ble_peer_down, peer_id}, state) do
-    IO.inspect({:peer_down, peer_id})
-    {:noreply, %{state | peers: MapSet.delete(state.peers, peer_id)}}
-  end
-
-  def handle_info({:ble_frame, peer_id, frame}, state) do
-    IO.inspect({:frame, peer_id, byte_size(frame)})
-    {:noreply, state}
-  end
-end
+```sh
+mix deps.get
+mix run --no-halt
 ```
 
-Run in a host application with:
+The example defaults to `native?: false`, so it is safe to run on a development
+machine without Android/iOS native linkage. Set `native?: true` only in a real
+mobile host where the `mob_ble` native sources and NIF are linked by the app.
 
-```elixir
-{:ok, _pid} =
-  BasicHost.Transport.start_link(
-    bridge: Mob.Ble.bridge_module(),
-    local_name: "basic-host",
-    native?: false
-  )
+For quick inspection in `iex`:
+
+```sh
+iex -S mix
 ```
 
-Set `native?: true` only in a real mobile build where the `mob_ble` native
-sources and NIF are linked by the host app.
+```elixir
+BasicHost.Transport.peers()
+```
