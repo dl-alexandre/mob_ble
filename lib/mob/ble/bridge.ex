@@ -33,6 +33,12 @@ defmodule Mob.Ble.Bridge do
   Android/iOS sources for the exact JSON shapes emitted by the platform sides.
   """
 
+  @type peer_id :: term()
+  @type frame :: binary()
+  @type bridge_opts :: keyword()
+  @type start_result :: GenServer.on_start()
+  @type send_result :: :ok | {:error, term()}
+
   # CONTRACT SYNC: Mob.Ble.Bridge <-> MeshxTransportBLE.Bridge
   # This is the canonical behaviour definition for the mob plugin ecosystem.
   # Any change to callbacks or documented inbound events MUST be mirrored
@@ -41,7 +47,7 @@ defmodule Mob.Ble.Bridge do
   # Last synchronized: 2026-05-19
   # See docs/mob_ble_bridge_migration.md for full migration rationale and risks.
 
-  @callback start_link(keyword()) :: GenServer.on_start()
-  @callback send_frame(pid(), term(), binary(), keyword()) :: :ok | {:error, term()}
-  @callback broadcast_frame(pid(), binary(), keyword()) :: :ok | {:error, term()}
+  @callback start_link(bridge_opts()) :: start_result()
+  @callback send_frame(pid(), peer_id(), frame(), bridge_opts()) :: send_result()
+  @callback broadcast_frame(pid(), frame(), bridge_opts()) :: send_result()
 end

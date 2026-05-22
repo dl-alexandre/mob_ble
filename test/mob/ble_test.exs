@@ -107,7 +107,11 @@ defmodule Mob.BleTest do
     end
 
     test "MobBle.Application.start reads config :mob_ble,config and calls validate_config" do
-      Application.put_env(:mob_ble, :config, evidence_mode: :production, log_level: :debug, diagnostics: false)
+      Application.put_env(:mob_ble, :config,
+        evidence_mode: :production,
+        log_level: :debug,
+        diagnostics: false
+      )
 
       assert {:ok, sup_pid} = MobBle.Application.start(:normal, [])
       assert is_pid(sup_pid)

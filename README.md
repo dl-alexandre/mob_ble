@@ -118,6 +118,15 @@ supervision/linking semantics.
 - `MobBle.Application` intentionally starts **zero** children that are
   `MobileBridge` instances. The supervisor only exists as a named anchor
   for future internal coordinators.
+- `Mob.Ble.Error` and `Mob.Ble.Backoff` provide a small public taxonomy and
+  bounded retry policy helper for bridge/native operations.
+- `Mob.Ble.Diagnostics.Metrics` provides a pure accumulator for RSSI
+  histograms, peer discovery stats, frame counts, error categories, and
+  GATT/connection quality samples.
+
+See `docs/ROADMAP.md`, `docs/PERFORMANCE.md`, and
+`examples/basic_host/README.md` for the current hardening plan and integration
+shape.
 - `MobileBridge` (GenServer) is instantiated exclusively via
   `Mob.Ble.bridge_module().start_link(bridge_opts)`.
 - Native NIF calls (`:mob_ble_nif.*`) are skipped in `Mix.env() == :test`

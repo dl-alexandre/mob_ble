@@ -14,13 +14,21 @@ defmodule Mob.Ble.MixProject do
       compilers: [:elixir_make] ++ Mix.compilers(),
       make_clean: ["clean"],
       deps: deps(),
+      dialyzer: dialyzer(),
       description: @description,
       package: package(),
       source_url: @github_url,
       homepage_url: @github_url,
       docs: [
         main: "readme",
-        extras: ["README.md", "CHANGELOG.md", "LICENSE"]
+        extras: [
+          "README.md",
+          "CHANGELOG.md",
+          "docs/ROADMAP.md",
+          "docs/PERFORMANCE.md",
+          "examples/basic_host/README.md",
+          "LICENSE"
+        ]
       ]
     ]
   end
@@ -61,6 +69,8 @@ defmodule Mob.Ble.MixProject do
         Makefile
         README.md
         CHANGELOG.md
+        docs
+        examples
         LICENSE
       )
     ]
@@ -80,7 +90,17 @@ defmodule Mob.Ble.MixProject do
       # This package is fully self-contained for the `mob` plugin ecosystem.
       # (See docs/mob_ble_bridge_migration.md — Phase 1 complete.)
       {:elixir_make, "~> 0.9.0", runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.40.2", only: :dev, runtime: false}
+    ]
+  end
+
+  defp dialyzer do
+    [
+      plt_local_path: "_build/plts",
+      plt_core_path: "_build/plts",
+      plt_add_apps: [:mix, :ex_unit],
+      flags: [:error_handling, :unknown, :unmatched_returns]
     ]
   end
 end

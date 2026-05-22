@@ -38,19 +38,24 @@ defmodule Mob.Ble.Internal.BridgeProtocolTest do
     end
 
     test "received_message with envelope key (Android/iOS real shape) maps to ble_frame" do
-      env = Base.encode64(<<1,2,3,4>>)
+      env = Base.encode64(<<1, 2, 3, 4>>)
       json = ~s({"v":1,"event":"received_message","sender_peer_id":"p2","envelope":"#{env}"})
-      assert {:ok, {:ble_frame, "p2", <<1,2,3,4>>}} = BridgeProtocol.decode(json)
+      assert {:ok, {:ble_frame, "p2", <<1, 2, 3, 4>>}} = BridgeProtocol.decode(json)
     end
 
     test "received_message using received_device_id fallback (real iOS shape) maps to ble_frame" do
-      env = Base.encode64(<<5,6,7>>)
-      json = ~s({"v":1,"event":"received_message","received_device_id":"dev3","envelope":"#{env}"})
-      assert {:ok, {:ble_frame, "dev3", <<5,6,7>>}} = BridgeProtocol.decode(json)
+      env = Base.encode64(<<5, 6, 7>>)
+
+      json =
+        ~s({"v":1,"event":"received_message","received_device_id":"dev3","envelope":"#{env}"})
+
+      assert {:ok, {:ble_frame, "dev3", <<5, 6, 7>>}} = BridgeProtocol.decode(json)
     end
 
     test "advertisement_received maps to ble_peer_up (native contract)" do
-      json = ~s({"v":1,"event":"advertisement_received","device_id":"dev-42","rssi":-61,"advertisement":"YWJj"})
+      json =
+        ~s({"v":1,"event":"advertisement_received","device_id":"dev-42","rssi":-61,"advertisement":"YWJj"})
+
       assert {:ok, {:ble_peer_up, "dev-42", %{"rssi" => -61}}} = BridgeProtocol.decode(json)
     end
 
@@ -60,13 +65,18 @@ defmodule Mob.Ble.Internal.BridgeProtocolTest do
     end
 
     test "error and status tags return structured errors (not crash)" do
-      assert {:error, {:native_error, _}} = BridgeProtocol.decode(~s({"v":1,"event":"error","kind":"nif"}))
-      assert {:error, {:native_status, _}} = BridgeProtocol.decode(~s({"v":1,"event":"status","detail":"scanning"}))
+      assert {:error, {:native_error, _}} =
+               BridgeProtocol.decode(~s({"v":1,"event":"error","kind":"nif"}))
+
+      assert {:error, {:native_status, _}} =
+               BridgeProtocol.decode(~s({"v":1,"event":"status","detail":"scanning"}))
     end
 
     test "received_message_beacon tolerated (future mapping)" do
       json = ~s({"v":1,"event":"received_message_beacon","peer_id":"b1"})
-      assert {:error, {:missing_required_fields, "received_message_beacon"}} = BridgeProtocol.decode(json)
+
+      assert {:error, {:missing_required_fields, "received_message_beacon"}} =
+               BridgeProtocol.decode(json)
     end
   end
 

@@ -22,7 +22,8 @@ defmodule Mob.Ble.SelfTestTest do
 
     send(
       pid,
-      {MobileBridge, :bridge_event, ~s({"v":1,"event":"frame","peer_id":"p-1","frame":"#{frame}"})}
+      {MobileBridge, :bridge_event,
+       ~s({"v":1,"event":"frame","peer_id":"p-1","frame":"#{frame}"})}
     )
 
     # let the GenServer process the cast-style messages

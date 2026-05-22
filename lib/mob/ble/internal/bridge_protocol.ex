@@ -67,7 +67,8 @@ defmodule Mob.Ble.Internal.BridgeProtocol do
     {:ok, {:ble_peer_down, peer_id}}
   end
 
-  defp decode_v1("frame", %{"peer_id" => peer_id, "frame" => frame}) when is_binary(peer_id) and is_binary(frame) do
+  defp decode_v1("frame", %{"peer_id" => peer_id, "frame" => frame})
+       when is_binary(peer_id) and is_binary(frame) do
     {:ok, {:ble_frame, peer_id, decode_frame(frame)}}
   end
 
@@ -81,8 +82,12 @@ defmodule Mob.Ble.Internal.BridgeProtocol do
   # - "received_message" uses "sender_peer_id" (or "peer_id" / "received_device_id" fallback) + "envelope" (or "payload")
   # - This ensures full MX envelopes (the :mb_gatt carrier) are delivered as {:ble_frame, peer_id, data}
   defp decode_v1("received_message", msg) when is_map(msg) do
-    peer_id = Map.get(msg, "peer_id") || Map.get(msg, "sender_peer_id") || Map.get(msg, "received_device_id")
+    peer_id =
+      Map.get(msg, "peer_id") || Map.get(msg, "sender_peer_id") ||
+        Map.get(msg, "received_device_id")
+
     envelope_or_payload = Map.get(msg, "envelope") || Map.get(msg, "payload")
+
     if is_binary(peer_id) and is_binary(envelope_or_payload) do
       {:ok, {:ble_frame, peer_id, decode_frame(envelope_or_payload)}}
     else
@@ -102,8 +107,18 @@ defmodule Mob.Ble.Internal.BridgeProtocol do
   end
 
   # received_message_beacon (iOS/Android cue path) -> peer_up for discovery
-  defp decode_v1("received_message_beacon", %{"received_device_id" => dev} = msg) when is_binary(dev) do
-    meta = Map.take(msg, ["rssi", "beacon_version", "envelope_version", "payload_kind", "message_id_hash", "sender_peer_id_hash"])
+  defp decode_v1("received_message_beacon", %{"received_device_id" => dev} = msg)
+       when is_binary(dev) do
+    meta =
+      Map.take(msg, [
+        "rssi",
+        "beacon_version",
+        "envelope_version",
+        "payload_kind",
+        "message_id_hash",
+        "sender_peer_id_hash"
+      ])
+
     {:ok, {:ble_peer_up, dev, meta}}
   end
 
@@ -111,7 +126,8 @@ defmodule Mob.Ble.Internal.BridgeProtocol do
   defp decode_v1("error", msg) when is_map(msg), do: {:error, {:native_error, msg}}
   defp decode_v1("status", msg) when is_map(msg), do: {:error, {:native_status, msg}}
 
-  defp decode_v1(tag, _msg) when tag in ~w(peer_up peer_down frame received_message advertisement_received device_discovered error status received_message_beacon) do
+  defp decode_v1(tag, _msg)
+       when tag in ~w(peer_up peer_down frame received_message advertisement_received device_discovered error status received_message_beacon) do
     {:error, {:missing_required_fields, tag}}
   end
 

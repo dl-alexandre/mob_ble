@@ -79,7 +79,8 @@ defmodule Mob.Ble.SelfTest do
     {:noreply, state}
   end
 
-  def handle_info({source, :bridge_event, json}, state) when source in [__MODULE__, Mob.Ble.MobileBridge] do
+  def handle_info({source, :bridge_event, json}, state)
+      when source in [__MODULE__, Mob.Ble.MobileBridge] do
     state = %{state | events: state.events + 1}
 
     state =

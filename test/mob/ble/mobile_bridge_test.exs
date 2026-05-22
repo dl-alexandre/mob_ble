@@ -68,7 +68,12 @@ defmodule Mob.Ble.MobileBridgeTest do
     test "decodes a frame payload (base64)", %{bridge: bridge} do
       bin = <<1, 2, 3>>
       b64 = Base.encode64(bin)
-      send(bridge, {MobileBridge, :bridge_event, ~s({"v":1,"event":"frame","peer_id":"p","frame":"#{b64}"})})
+
+      send(
+        bridge,
+        {MobileBridge, :bridge_event, ~s({"v":1,"event":"frame","peer_id":"p","frame":"#{b64}"})}
+      )
+
       assert_receive {:ble_frame, "p", ^bin}, 500
     end
 
@@ -219,7 +224,9 @@ defmodule Mob.Ble.MobileBridgeTest do
       orig = Application.get_env(:mob_ble, :config)
 
       on_exit(fn ->
-        if orig == nil, do: Application.delete_env(:mob_ble, :config), else: Application.put_env(:mob_ble, :config, orig)
+        if orig == nil,
+          do: Application.delete_env(:mob_ble, :config),
+          else: Application.put_env(:mob_ble, :config, orig)
       end)
 
       :ok
@@ -227,13 +234,24 @@ defmodule Mob.Ble.MobileBridgeTest do
 
     test "per-bridge :config overrides deployment config for native? and local_name" do
       Application.put_env(:mob_ble, :config, local_name: "deploy-name", native?: true)
-      {:ok, b} = MobileBridge.start_link(event_target: self(), config: [local_name: "bridge-override", native?: false])
+
+      {:ok, b} =
+        MobileBridge.start_link(
+          event_target: self(),
+          config: [local_name: "bridge-override", native?: false]
+        )
+
       # stopped in on_exit of setup in parent; explicit here for clarity
       GenServer.stop(b)
     end
 
     test "unknown keys in config tolerated at start_link time" do
-      {:ok, b} = MobileBridge.start_link(event_target: self(), config: [future: "compat", diagnostics: false])
+      {:ok, b} =
+        MobileBridge.start_link(
+          event_target: self(),
+          config: [future: "compat", diagnostics: false]
+        )
+
       GenServer.stop(b)
     end
   end
@@ -252,7 +270,8 @@ defmodule Mob.Ble.MobileBridgeTest do
     test "multiple bridges under one supervisor with distinct event_targets" do
       child_specs = [
         {MobileBridge, [event_target: self(), native?: false, local_name: "b1"]},
-        {MobileBridge, [event_target: spawn(fn -> Process.sleep(5000) end), native?: false, local_name: "b2"]}
+        {MobileBridge,
+         [event_target: spawn(fn -> Process.sleep(5000) end), native?: false, local_name: "b2"]}
       ]
 
       {:ok, sup} = Supervisor.start_link(child_specs, strategy: :one_for_one)

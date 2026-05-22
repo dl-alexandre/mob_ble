@@ -241,7 +241,8 @@ defmodule Mob.Ble.Internal.CarrierDecision do
         nil ->
           {:rejected,
            %{
-             reason: "unknown carrier #{inspect(carrier_id)} — only #{inspect(active())} is validated",
+             reason:
+               "unknown carrier #{inspect(carrier_id)} — only #{inspect(active())} is validated",
              diagnostics: nil
            }}
       end

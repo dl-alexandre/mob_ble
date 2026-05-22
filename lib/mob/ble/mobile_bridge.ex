@@ -75,6 +75,7 @@ defmodule Mob.Ble.MobileBridge do
           native?: boolean()
         }
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   @impl true
   def start_link(opts) do
     with :ok <- require_event_target(opts),
@@ -83,6 +84,7 @@ defmodule Mob.Ble.MobileBridge do
     end
   end
 
+  @spec child_spec(keyword()) :: Supervisor.child_spec()
   def child_spec(opts) do
     id =
       Keyword.get_lazy(opts, :id, fn ->
@@ -121,11 +123,13 @@ defmodule Mob.Ble.MobileBridge do
     end
   end
 
+  @spec send_frame(pid(), term(), binary(), keyword()) :: :ok | {:error, term()}
   @impl true
   def send_frame(bridge, peer_id, frame, opts \\ []) do
     GenServer.call(bridge, {:send_frame, peer_id, frame, opts})
   end
 
+  @spec broadcast_frame(pid(), binary(), keyword()) :: :ok | {:error, term()}
   @impl true
   def broadcast_frame(bridge, frame, opts \\ []) do
     GenServer.call(bridge, {:broadcast_frame, frame, opts})
@@ -138,7 +142,12 @@ defmodule Mob.Ble.MobileBridge do
     local_name = local_name(opts, config)
     native? = native_enabled?(opts, config)
 
-    state = %{event_target: event_target, config: config, local_name: local_name, native?: native?}
+    state = %{
+      event_target: event_target,
+      config: config,
+      local_name: local_name,
+      native?: native?
+    }
 
     if native? do
       with :ok <- native_call(:start_scan, [self()]),
@@ -200,7 +209,8 @@ defmodule Mob.Ble.MobileBridge do
       "mob-ble"
   end
 
-  defp config_value(config, key) when is_map(config), do: Map.get(config, key) || Map.get(config, to_string(key))
+  defp config_value(config, key) when is_map(config),
+    do: Map.get(config, key) || Map.get(config, to_string(key))
 
   defp config_value(config, key) when is_list(config), do: Keyword.get(config, key)
   defp config_value(_config, _key), do: nil

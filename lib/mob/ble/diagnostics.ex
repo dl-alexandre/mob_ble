@@ -7,6 +7,8 @@ defmodule Mob.Ble.Diagnostics do
   without depending on private carrier-decision modules.
 
   Not for runtime branching — carrier choice is fixed by `Mob.Ble.carrier/0`.
+
+  For runtime metrics accumulation, use `Mob.Ble.Diagnostics.Metrics`.
   """
 
   alias Mob.Ble.Internal.CarrierDecision
@@ -14,7 +16,7 @@ defmodule Mob.Ble.Diagnostics do
   @doc """
   Returns the active carrier id (the one with hardware evidence).
   """
-  @spec carrier() :: atom()
+  @spec carrier() :: Mob.Ble.carrier()
   def carrier, do: Mob.Ble.carrier()
 
   @doc """

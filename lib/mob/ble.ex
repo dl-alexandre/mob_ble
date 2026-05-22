@@ -32,8 +32,12 @@ defmodule Mob.Ble do
 
   alias Mob.Ble.Internal.CarrierDecision
 
+  @type carrier :: :mb_gatt
+  @type config :: keyword() | map()
+  @type validation_error :: {:error, {:invalid_config, atom(), term()}}
+
   @doc "Returns the active, validated carrier id."
-  @spec carrier() :: :mb_gatt
+  @spec carrier() :: carrier()
   def carrier, do: CarrierDecision.active()
 
   @doc "Returns the bridge module to use when this plugin is active."
@@ -81,7 +85,7 @@ defmodule Mob.Ble do
   the only one that raises — a rejected carrier is a programmer error, not
   a config typo we should swallow.
   """
-  @spec validate_config(keyword() | map()) :: :ok | {:error, term()}
+  @spec validate_config(config()) :: :ok | validation_error()
   def validate_config(config) when is_list(config) or is_map(config) do
     cfg = Map.new(Enum.to_list(config))
 
@@ -96,7 +100,10 @@ defmodule Mob.Ble do
   defp check_carrier(_), do: :ok
 
   defp check_evidence_mode(%{evidence_mode: m}) when m in [:production, :diagnostic], do: :ok
-  defp check_evidence_mode(%{evidence_mode: m}), do: {:error, {:invalid_config, :evidence_mode, m}}
+
+  defp check_evidence_mode(%{evidence_mode: m}),
+    do: {:error, {:invalid_config, :evidence_mode, m}}
+
   defp check_evidence_mode(_), do: :ok
 
   defp check_log_level(%{log_level: l}) when is_atom(l), do: :ok
