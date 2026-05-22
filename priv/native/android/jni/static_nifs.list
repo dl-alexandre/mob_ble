@@ -1,0 +1,2 @@
+# module source init_symbol
+mob_ble_nif priv/native/android/jni/mob_ble_nif.c mob_ble_nif_nif_init

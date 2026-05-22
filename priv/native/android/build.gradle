@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'mob.ble'
+    compileSdk 34
+
+    // Keep this aligned with the consuming Mob application. Kotlin and native
+    // source ownership live here; final lib<app>.so packaging still happens in
+    // the app build from generated native-link metadata.
+    ndkVersion '27.2.12479018'
+
+    defaultConfig {
+        minSdk 28
+        targetSdk 34
+
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java']
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+        }
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}

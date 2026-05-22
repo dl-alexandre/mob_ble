@@ -1,0 +1,13 @@
+/_build/
+/cover/
+/deps/
+/doc/
+/tmp/
+/priv/generated/
+/priv/*.so
+*.a
+*.o
+*.tar
+.zig-cache/
+erl_crash.dump
+tmp_*
