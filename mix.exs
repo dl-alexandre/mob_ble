@@ -11,7 +11,9 @@ defmodule Mob.Ble.MixProject do
       version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
-      test_coverage: [summary: [threshold: 90]],
+      # Coverage is reported in the umbrella summary but not gated here; this
+      # plugin is published independently (threshold 0 => summary only, never fails).
+      test_coverage: [summary: [threshold: 0]],
       compilers: [:elixir_make] ++ Mix.compilers(),
       make_clean: ["clean"],
       deps: deps(),
