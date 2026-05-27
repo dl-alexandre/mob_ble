@@ -11,6 +11,7 @@ defmodule Mob.Ble.MixProject do
       version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
+      test_coverage: [summary: [threshold: 90]],
       compilers: [:elixir_make] ++ Mix.compilers(),
       make_clean: ["clean"],
       deps: deps(),
