@@ -3,6 +3,7 @@ package mob.ble
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.os.Handler
@@ -91,6 +92,22 @@ class BleScanner(
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
             .build()
 
+        // Filtered scan (NOT null filters): Android halts UNFILTERED scans while
+        // the screen is off (since 8.1), which silently kills locked-window
+        // receive (RT-01: rt-01-sustained-002 measured after_5m=0). Filtering on
+        // the MeshX advert signature keeps results flowing while backgrounded.
+        // Manufacturer 0xFFFF (empty data = match-any payload) covers BOTH the
+        // legacy MB beacon and the full advert (both call addManufacturerData);
+        // the service-UUID entry is an OR backstop for service-UUID-only adverts.
+        val scanFilters = listOf(
+            ScanFilter.Builder()
+                .setManufacturerData(BleDispatcher.MOB_COMPANY_IDENTIFIER, ByteArray(0))
+                .build(),
+            ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid(BleDispatcher.MOB_SERVICE_UUID))
+                .build()
+        )
+
         // Post the actual platform registration to the main looper. Calling
         // BluetoothLeScanner.startScan directly from a non-UI thread (the
         // NIF dispatch thread that reaches here via the BEAM -> JNI path)
@@ -100,7 +117,7 @@ class BleScanner(
         running = true
         mainHandler.post {
             try {
-                leScanner.startScan(null, settings, callback)
+                leScanner.startScan(scanFilters, settings, callback)
             } catch (e: SecurityException) {
                 running = false
                 sink.accept(
