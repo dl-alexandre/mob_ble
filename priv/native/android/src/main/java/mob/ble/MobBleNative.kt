@@ -371,9 +371,15 @@ object MobBleNative {
         }
     }
 
-    /** Test-only accessor for the active responder's success counters. */
+    /**
+     * Test/diagnostic accessor for the active responder's success counters.
+     * Public (not `internal`) so instrumented tests in the consuming app's
+     * `:app` module — not `:mob_ble_android` — can reach it; module-internal
+     * visibility is invisible across that boundary. Returns the public
+     * `MobFetchGatt`; not intended for production callers.
+     */
     @JvmStatic
-    internal fun activeResponder(): MobFetchGatt? = fetchResponder
+    fun activeResponder(): MobFetchGatt? = fetchResponder
 
     /**
      * Public send entry point — called from the JNI bridge.
