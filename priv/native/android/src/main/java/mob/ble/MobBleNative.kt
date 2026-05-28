@@ -163,6 +163,29 @@ object MobBleNative {
         }
     }
 
+    /**
+     * RT-01 lever 2a: re-register the active scan from the *current* process
+     * context. When invoked from the foreground service (after startForeground),
+     * Android attributes the scan to a foreground app, which is exempt from the
+     * screen-off background-scan suspension that otherwise freezes locked
+     * receive. Stops then restarts so the registration is rebound even if the
+     * BEAM session already started scanning from background importance.
+     */
+    @JvmStatic
+    fun restartScanFromForeground(): Boolean {
+        val b = ensureBridgeOrNull() ?: return false
+        return try {
+            b.stopScan()
+            b.startScan()
+        } catch (t: Throwable) {
+            emitBridgeError(
+                BleEvent.Companion.ErrorKind.SCAN_FAILED,
+                "restartScanFromForeground threw: ${t.message ?: t.javaClass.simpleName}"
+            )
+            false
+        }
+    }
+
     @JvmStatic
     fun startAdvertising(localName: String): Boolean {
         if (localName.isBlank()) {
